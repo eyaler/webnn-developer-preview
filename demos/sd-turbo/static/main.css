@@ -76,6 +76,16 @@ body {
   scrollbar-color: var(--main-01), transparent;
 }
 
+img:is(body:has(#image_to_image:not(:checked), #camera:checked) *) {
+    visibility: hidden;
+}
+
+#image_strength {
+    height: min-content;
+    width: 7ch;
+    font-size: 1em;
+}
+
 #webnn-logo {
   width: 150px;
   height: 30px;
@@ -282,13 +292,14 @@ h1.title span {
 
 .button-group {
   display: flex;
+  gap: 2em;
   justify-content: center;
   padding: 4px;
   background-color: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 50px;
   margin: 10px auto;
-  max-width: 50vw;
+  max-width: 75vw;
 }
 
 .button-group:hover {
@@ -327,10 +338,10 @@ h1.title span {
 #image_area {
   margin: 20px auto 10px auto;
   min-height: 40vh;
+  justify-items: center;
 }
 
 #data_area {
-  margin-bottom: 20px;
   font-size: 1.6rem;
   font-weight: 600;
   height: 40px;
@@ -438,7 +449,7 @@ h1.title span {
 }
 
 .log-output {
-  height: 20vh;
+  height: 15vh;
   padding: 10px 10px;
   background-color: var(--bg-2);
   border: 1px solid var(--border);
@@ -726,6 +737,10 @@ h1.title span {
   transform: none;
 }
 
+svg {
+    max-height: 512px;
+}
+
 .frame.loadwave .loadwave-data svg {
   animation: spin 8s linear infinite;
 }
@@ -871,7 +886,7 @@ h1.title span {
 #textEncoder,
 #unet,
 #vae,
-#sc {
+#vaeEncoder {
   border-left: 1px solid var(--border);
 }
 
@@ -963,6 +978,7 @@ h1.title span {
   #image_area {
     margin: 10px auto 10px auto;
     min-height: auto;
+    justify-items: center;
   }
 
   .v1 {
@@ -1004,6 +1020,7 @@ h1.title span {
   #image_area {
     margin: 10px auto 10px auto;
     min-height: auto;
+    justify-items: center;
   }
 
   #data table {

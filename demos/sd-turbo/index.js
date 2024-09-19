@@ -30,26 +30,18 @@ const logError = (i) => {
 function getConfig() {
   const query = window.location.search.substring(1);
   var config = {
-    model: location.href.includes("github.io")
-      ? "https://huggingface.co/microsoft/sd-turbo-webnn/resolve/main"
-      : "models",
+    model: "https://huggingface.co/microsoft/sd-turbo-webnn/resolve/main",
+    vae_encoder_path: "https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main",
+     //"https://huggingface.co/tlwu/sd-turbo-onnxruntime/resolve/main",
     mode: "none",
-    safetychecker: true,
+    safetychecker: false,
     provider: "webnn",
     device: "gpu",
     threads: "1",
-    images: "4",
+    images: "1",
     ort: "test"
   };
-  let vars = query.split("&");
-  for (var i = 0; i < vars.length; i++) {
-    let pair = vars[i].split("=");
-    if (pair[0] in config) {
-      config[pair[0]] = decodeURIComponent(pair[1]);
-    } else if (pair[0].length > 0) {
-      throw new Error("unknown argument: " + pair[0]);
-    }
-  }
+
   config.threads = parseInt(config.threads);
   config.images = parseInt(config.images);
   return config;
@@ -82,11 +74,11 @@ function randn_latents(shape, noise_sigma) {
 let textEncoderFetchProgress = 0;
 let unetFetchProgress = 0;
 let vaeDecoderFetchProgress = 0;
+let vaeEncoderFetchProgress = 0;
 let textEncoderCompileProgress = 0;
 let unetCompileProgress = 0;
+let vaeEncoderCompileProgress = 0;
 let vaeDecoderCompileProgress = 0;
-let scFetchProgress = 0;
-let scCompileProgress = 0;
 
 // Get model via Origin Private File System
 async function getModelOPFS(name, url, updateModel) {
@@ -94,6 +86,7 @@ async function getModelOPFS(name, url, updateModel) {
   let fileHandle;
 
   async function updateFile() {
+    console.log('updating', name)
     const response = await fetch(url);
     const buffer = await readResponse(name, response);
     fileHandle = await root.getFileHandle(name, { create: true });
@@ -112,25 +105,17 @@ async function getModelOPFS(name, url, updateModel) {
     const blob = await fileHandle.getFile();
     let buffer = await blob.arrayBuffer();
     if (buffer) {
-      if(getSafetyChecker()) {
-        if (name == "sd_turbo_text_encoder") {
-          textEncoderFetchProgress = 20.0;
-        } else if (name == "sd_turbo_unet") {
-          unetFetchProgress = 48.0;
-        } else if (name == "sd_turbo_vae_decoder") {
-          vaeDecoderFetchProgress = 3.0;
-        } else if (name == "sd_turbo_safety_checker") {
-          scFetchProgress = 17.0;
-        }
-      } else {
+
         if (name == "sd_turbo_text_encoder") {
           textEncoderFetchProgress = 20.0;
         } else if (name == "sd_turbo_unet") {
           unetFetchProgress = 65.0;
         } else if (name == "sd_turbo_vae_decoder") {
-          vaeDecoderFetchProgress = 3.0;
+          vaeDecoderFetchProgress = 2.0;
+        } else if (name == "sd_turbo_vae_encoder") {
+          vaeEncoderFetchProgress = 1.0;
         }
-      }
+
 
       updateProgress();
       updateLoadWave(progress.toFixed(2));
@@ -155,25 +140,17 @@ async function readResponse(name, response) {
     let newLoaded = loaded + value.length;
     let fetchProgress = (newLoaded / contentLength) * 100;
 
-    if(!getSafetyChecker()) {
       if (name == "sd_turbo_text_encoder") {
         textEncoderFetchProgress = 0.2 * fetchProgress;
       } else if (name == "sd_turbo_unet") {
         unetFetchProgress = 0.65 * fetchProgress;
       } else if (name == "sd_turbo_vae_decoder") {
-        vaeDecoderFetchProgress = 0.03 * fetchProgress;
+        vaeDecoderFetchProgress = 0.02 * fetchProgress;
+      } else if (name == "sd_turbo_vae_encoder") {
+        vaeEncoderFetchProgress = 0.01 * fetchProgress;
       }
-    } else {
-      if (name == "sd_turbo_text_encoder") {
-        textEncoderFetchProgress = 0.2 * fetchProgress;
-      } else if (name == "sd_turbo_unet") {
-        unetFetchProgress = 0.48 * fetchProgress;
-      } else if (name == "sd_turbo_vae_decoder") {
-        vaeDecoderFetchProgress = 0.03 * fetchProgress;
-      } else if (name == "sd_turbo_safety_checker") {
-        scFetchProgress = 0.17 * fetchProgress;
-      }
-    }
+
+
 
     updateProgress();
     updateLoadWave(progress.toFixed(2));
@@ -197,25 +174,16 @@ const getMode = () => {
   return (getQueryValue("mode") === "normal") ? false : true;
 };
 
-const getSafetyChecker = () => {
-  if(getQueryValue("safetychecker")) {
-    return (getQueryValue("safetychecker") === "true") ? true : false; 
-  } else {
-    return true;
-  }
-};
 
 const updateProgress = () => {
     progress =
     textEncoderFetchProgress +
     unetFetchProgress +
-    scFetchProgress +
-    vaeDecoderFetchProgress +
+    vaeDecoderFetchProgress + vaeEncoderFetchProgress +
     textEncoderCompileProgress +
     unetCompileProgress +
-    vaeDecoderCompileProgress +
-    scCompileProgress;
-}
+    vaeDecoderCompileProgress + vaeEncoderCompileProgress;
+    }
 
 /*
  * load models used in the pipeline
@@ -239,12 +207,12 @@ async function load_models(models) {
       } else if (name == "vae_decoder") {
         modelNameInLog = "VAE Decoder";
         modelUrl = `${config.model}/${name}/model.onnx`;
-      } else if (name == "safety_checker") {
-        modelNameInLog = "Safety Checker";
-        modelUrl = `${config.model}/${name}/safety_checker_int32_reduceSum.onnx`;
+      } else if (name == "vae_encoder") {
+        modelNameInLog = "VAE Encoder";
+        modelUrl = `${config.vae_encoder_path}/${name}/model.onnx`;
       }
       log(`[Load] Loading model ${modelNameInLog} · ${model.size}`);
-      let modelBuffer = await getModelOPFS(`sd_turbo_${name}`, modelUrl, false);
+      let modelBuffer = await getModelOPFS(`sd_turbo_${name}`, modelUrl, refetch.checked);
       let modelFetchTime = (performance.now() - start).toFixed(2);
       if (name == "text_encoder") {
         textEncoderFetch.innerHTML = modelFetchTime;
@@ -252,44 +220,21 @@ async function load_models(models) {
         unetFetch.innerHTML = modelFetchTime;
       } else if (name == "vae_decoder") {
         vaeFetch.innerHTML = modelFetchTime;
-      } else if (name == "safety_checker") {
-        scFetch.innerHTML = modelFetchTime;
+      } else if (name == "vae_encoder") {
+        vaeEncoderFetch.innerHTML = modelFetchTime;
       }
       log(`[Load] ${modelNameInLog} loaded · ${modelFetchTime}ms`);
       log(`[Session Create] Beginning ${modelNameInLog}`);
 
       start = performance.now();
       const sess_opt = { ...opt, ...model.opt };
-      console.log(sess_opt);
       models[name].sess = await ort.InferenceSession.create(
         modelBuffer,
         sess_opt
       );
       let createTime = (performance.now() - start).toFixed(2);
 
-      if(getSafetyChecker()) {
-        if (name == "text_encoder") {
-          textEncoderCreate.innerHTML = createTime;
-          textEncoderCompileProgress = 2;
-          updateProgress();
-          updateLoadWave(progress.toFixed(2));
-        } else if (name == "unet") {
-          unetCreate.innerHTML = createTime;
-          unetCompileProgress = 7;
-          updateProgress();
-          updateLoadWave(progress.toFixed(2));
-        } else if (name == "vae_decoder") {
-          vaeCreate.innerHTML = createTime;
-          vaeDecoderCompileProgress = 1;
-          updateProgress();
-          updateLoadWave(progress.toFixed(2));
-        } else if (name == "safety_checker") {
-          scCreate.innerHTML = createTime;
-          scCompileProgress = 2;
-          updateProgress();
-          updateLoadWave(progress.toFixed(2));
-        }
-      } else {
+
         if (name == "text_encoder") {
           textEncoderCreate.innerHTML = createTime;
           textEncoderCompileProgress = 2;
@@ -305,8 +250,13 @@ async function load_models(models) {
           vaeDecoderCompileProgress = 1;
           updateProgress();
           updateLoadWave(progress.toFixed(2));
+        } else if (name == "vae_encoder") {
+          vaeEncoderCreate.innerHTML = createTime;
+          vaeEncoderCompileProgress = 1;
+          updateProgress();
+          updateLoadWave(progress.toFixed(2));
         }
-      }
+
 
       if (getMode()) {
         log(
@@ -316,7 +266,7 @@ async function load_models(models) {
         log(`[Session Create] Create ${modelNameInLog} completed`);
       }
     } catch (e) {
-      log(`[Load] ${modelNameInLog} failed, ${e}`);
+      log(`[Load] ${modelNameInLog} failed, ${e.stack}`);
     }
   }
 
@@ -357,6 +307,13 @@ let models = {
     // opt: { freeDimensionOverrides: { batch_size: 1, num_channels_latent: 4, height_latent: 64, width_latent: 64 } }
     opt: {
       freeDimensionOverrides: { batch: 1, channels: 4, height: 64, width: 64 },
+    },
+  },
+  vae_encoder: {
+    url: "vae_encoder/model.onnx",
+    size: "68.4MB",
+    opt: {
+      freeDimensionOverrides: { batch: 1, channels: 3, height: 512, width: 512 },
     },
   },
   safety_checker: {
@@ -400,7 +357,7 @@ const opt = {
 /*
  * scale the latents
  */
-function scale_model_inputs(t) {
+function scale_model_inputs(t, sigma) {
   const d_i = t.data;
   const d_o = new Float32Array(d_i.length);
 
@@ -417,14 +374,13 @@ function scale_model_inputs(t) {
  * Maybe next step is to support all sd flavors and create a small helper model in onnx can deal
  * much more efficient with latents.
  */
-function step(model_output, sample) {
+function step(model_output, sample, sigma, gamma, vae_scaling_factor) {
   const d_o = new Float32Array(model_output.data.length);
   const prev_sample = new ort.Tensor(d_o, model_output.dims);
   const sigma_hat = sigma * (gamma + 1);
 
   for (let i = 0; i < model_output.data.length; i++) {
-    const pred_original_sample =
-      sample.data[i] - sigma_hat * model_output.data[i];
+    const pred_original_sample = sample.data[i] - sigma_hat * model_output.data[i];
     const derivative = (sample.data[i] - pred_original_sample) / sigma_hat;
     const dt = 0 - sigma_hat;
     d_o[i] = (sample.data[i] + derivative * dt) / vae_scaling_factor;
@@ -485,18 +441,18 @@ function normalizeImageData(imageData) {
   return { data: array, width: width, height: height };
 }
 
-function get_tensor_from_image(imageData, format) {
+function get_tensor_from_image(imageData, format, scaled_noise, norm=2, offset=1) {
   const { data, width, height } = imageData;
   const numPixels = width * height;
   const channels = 3;
-  const rearrangedData = new Float32Array(numPixels * channels);
+  let rearrangedData = new Float32Array(numPixels * channels);
   let destOffset = 0;
 
   for (let i = 0; i < numPixels; i++) {
     const srcOffset = i * 4;
-    const r = data[srcOffset] / 255;
-    const g = data[srcOffset + 1] / 255;
-    const b = data[srcOffset + 2] / 255;
+    const r = (data[srcOffset] / 255 * norm - offset);
+    const g = (data[srcOffset + 1] / 255 * norm - offset);
+    const b = (data[srcOffset + 2] / 255 * norm - offset);
 
     if (format === "NCHW") {
       rearrangedData[destOffset] = r;
@@ -548,30 +504,15 @@ function draw_image(t, image_nr) {
 }
 
 async function generate_image() {
-  const img_divs = [img_div_0, img_div_1, img_div_2, img_div_3];
+  const img_divs = [img_div_0];
   img_divs.forEach((div) => div.setAttribute("class", "frame"));
 
   try {
     textEncoderRun1.innerHTML = "";
-    textEncoderRun2.innerHTML = "";
-    textEncoderRun3.innerHTML = "";
-    textEncoderRun4.innerHTML = "";
     unetRun1.innerHTML = "";
-    unetRun2.innerHTML = "";
-    unetRun3.innerHTML = "";
-    unetRun4.innerHTML = "";
     vaeRun1.innerHTML = "";
-    vaeRun2.innerHTML = "";
-    vaeRun3.innerHTML = "";
-    vaeRun4.innerHTML = "";
+    vaeEncoderRun1.innerHTML = "";
     runTotal1.innerHTML = "";
-    runTotal2.innerHTML = "";
-    runTotal3.innerHTML = "";
-    runTotal4.innerHTML = "";
-    scRun1.innerHTML = "";
-    scRun2.innerHTML = "";
-    scRun3.innerHTML = "";
-    scRun4.innerHTML = "";
 
     if(getMode()) {
       for (let i = 1; i <= config.images; i++) {
@@ -604,9 +545,6 @@ async function generate_image() {
     });
     let sessionRunTimeTextEncode = (performance.now() - start).toFixed(2);
     textEncoderRun1.innerHTML = sessionRunTimeTextEncode;
-    textEncoderRun2.innerHTML = sessionRunTimeTextEncode;
-    textEncoderRun3.innerHTML = sessionRunTimeTextEncode;
-    textEncoderRun4.innerHTML = sessionRunTimeTextEncode;
 
     if (getMode()) {
       log(
@@ -617,25 +555,64 @@ async function generate_image() {
     }
 
     for (let j = 0; j < config.images; j++) {
-      document
-        .getElementById(`img_div_${j}`)
-        .setAttribute("class", "frame inferncing");
-      let startTotal = performance.now();
-      const latent_shape = [1, 4, 64, 64];
-      let latent = new ort.Tensor(
-        randn_latents(latent_shape, sigma),
-        latent_shape
-      );
-      const latent_model_input = scale_model_inputs(latent);
+        document
+            .getElementById(`img_div_${j}`)
+            .setAttribute("class", "frame inferencing");
+          let startTotal = performance.now();
+          const latent_shape = [1, 4, 64, 64];
+
+        const noise = new ort.Tensor(
+            randn_latents(latent_shape, sigma),
+            latent_shape
+          );
+
+
+      // vae_encoder
+      let latent
+      let latent16
+      if (image_to_image.checked) {
+        const canvas = document.createElement('canvas')
+        canvas.width = 512
+        canvas.height = 512
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(input_image, 0, 0)
+        const image_data = ctx.getImageData(0, 0, 512, 512)
+        const output = await models.vae_encoder.sess.run({
+            sample: get_tensor_from_image(image_data, 'NCHW', 2, 1),
+        });
+        latent = convertToFloat32Array(output.latent_sample.data).map((value, index) => value*vae_scaling_factor*image_strength.valueAsNumber + noise.data[index])
+        latent = new ort.Tensor(
+          "float32",
+            latent,
+            output.latent_sample.dims);
+        let vaeEncoderRunTime = (performance.now() - start).toFixed(2);
+        document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = vaeEncoderRunTime;
+
+        if (getMode()) {
+          log(
+            `[Session Run][Image ${
+              j + 1
+            }] VAE encode execution time: ${vaeEncoderRunTime}ms`
+          );
+        } else {
+          log(`[Session Run][Image ${j + 1}] VAE encode completed`);
+        }
+      } else {
+        latent = noise
+
+      }
+
+        const scaled = scale_model_inputs(latent, sigma);
+        latent16 = new ort.Tensor(
+          "float16",
+          convertToUint16Array(scaled.data),
+          scaled.dims
+        )
 
       // unet
       start = performance.now();
       let feed = {
-        sample: new ort.Tensor(
-          "float16",
-          convertToUint16Array(latent_model_input.data),
-          latent_model_input.dims
-        ),
+        sample: latent16,
         timestep: new ort.Tensor("float16", new Uint16Array([toHalf(999)]), [
           1,
         ]),
@@ -660,7 +637,7 @@ async function generate_image() {
           convertToFloat32Array(out_sample.data),
           out_sample.dims
         ),
-        latent
+        latent, sigma, gamma, vae_scaling_factor
       );
 
       // vae_decoder
@@ -700,70 +677,11 @@ async function generate_image() {
         document.querySelector(`#data${j + 1}`).innerHTML = `${j + 1}`;
       }
 
-      if(getSafetyChecker()) {
-        // safety_checker
-        let resized_image_data = resize_image(j, 224, 224);
-        let normalized_image_data = normalizeImageData(resized_image_data);
-        let safety_checker_feed = {
-          clip_input: get_tensor_from_image(normalized_image_data, "NCHW"),
-          images: get_tensor_from_image(resized_image_data, "NHWC"),
-        };
-        start = performance.now();
-        const { has_nsfw_concepts } = await models.safety_checker.sess.run(
-          safety_checker_feed
-        );
-        // const { out_images, has_nsfw_concepts } = await models.safety_checker.sess.run(safety_checker_feed);
-        let scRunTime = (performance.now() - start).toFixed(2);
-        document.getElementById(`scRun${j + 1}`).innerHTML = scRunTime;
 
-        if (getMode()) {
-          log(
-            `[Session Run][Image ${
-              j + 1
-            }] Safety Checker execution time: ${scRunTime}ms`
-          );
-        } else {
-          log(`[Session Run][Image ${j + 1}] Safety Checker completed`);
-        }
-
-        document
-          .getElementById(`img_div_${j}`)
-          .setAttribute("class", "frame done");
-
-        let nsfw = false;
-        has_nsfw_concepts.data[0] ? (nsfw = true) : (nsfw = false);
-        log(
-          `[Session Run][Image ${
-            j + 1
-          }] Safety Checker - not safe for work (NSFW) concepts: ${nsfw}`
-        );
-
-        if (has_nsfw_concepts.data[0]) {
-          document
-            .querySelector(`#img_div_${j}`)
-            .setAttribute("class", "frame done nsfw");
-            if (getMode()) {
-            document.querySelector(`#data${j + 1}`).innerHTML =
-              totalRunTime + "ms · NSFW";
-            } else {
-              document.querySelector(`#data${j + 1}`).innerHTML = `${ j + 1 } · NSFW`;
-            }
-          document
-            .querySelector(`#data${j + 1}`)
-            .setAttribute("class", "nsfw show");
-          document
-            .querySelector(`#data${j + 1}`)
-            .setAttribute("title", "Not safe for work (NSFW) content");
-        } else {
-          document
-            .querySelector(`#img_div_${j}`)
-            .setAttribute("class", "frame done");
-        }
-      } else {
         document
         .getElementById(`img_div_${j}`)
         .setAttribute("class", "frame done");
-      }
+
 
       // let out_image = new ort.Tensor("float32", convertToFloat32Array(out_images.data), out_images.dims);
       // draw_out_image(out_image);
@@ -772,7 +690,7 @@ async function generate_image() {
     last_hidden_state.dispose();
     log("[Info] Images generation completed");
   } catch (e) {
-    log("[Error] " + e);
+    log("[Error] " + e.stack);
   }
 }
 
@@ -939,10 +857,11 @@ const checkWebNN = async () => {
   }
 };
 
+let context
 const webNnStatus = async () => {
   let result = {};
   try {
-    const context = await navigator.ml.createContext();
+    context = await navigator.ml.createContext();
     if (context) {
       try {
         const builder = new MLGraphBuilder(context);
@@ -977,31 +896,16 @@ const getQueryValue = (name) => {
 let textEncoderFetch = null;
 let textEncoderCreate = null;
 let textEncoderRun1 = null;
-let textEncoderRun2 = null;
-let textEncoderRun3 = null;
-let textEncoderRun4 = null;
 let unetFetch = null;
 let unetCreate = null;
 let unetRun1 = null;
-let unetRun2 = null;
-let unetRun3 = null;
-let unetRun4 = null;
 let vaeRun1 = null;
-let vaeRun2 = null;
-let vaeRun3 = null;
-let vaeRun4 = null;
-let scFetch = null;
-let scCreate = null;
-let scRun1 = null;
-let scRun2 = null;
-let scRun3 = null;
-let scRun4 = null;
+let vaeEncoderRun1 = null;
 let vaeFetch = null;
 let vaeCreate = null;
+let vaeEncoderFetch = null;
+let vaeEncoderCreate = null;
 let runTotal1 = null;
-let runTotal2 = null;
-let runTotal3 = null;
-let runTotal4 = null;
 let generate = null;
 let load = null;
 let dev = null;
@@ -1035,7 +939,6 @@ const ui = async () => {
   const title = document.querySelector("#title");
   const dev = document.querySelector("#dev");
   const dataElement = document.querySelector("#data");
-  const scTr = document.querySelector("#scTr");
   load = document.querySelector("#load");
   generate = document.querySelector("#generate");
   buttons = document.querySelector("#buttons");
@@ -1063,62 +966,32 @@ const ui = async () => {
     "#textEncoderFetch",
     "#textEncoderCreate",
     "#textEncoderRun1",
-    "#textEncoderRun2",
-    "#textEncoderRun3",
-    "#textEncoderRun4",
+    "#vaeEncoderFetch",
+    "#vaeEncoderCreate",
+    "#vaeEncoderRun1",
     "#unetRun1",
-    "#unetRun2",
-    "#unetRun3",
-    "#unetRun4",
     "#runTotal1",
-    "#runTotal2",
-    "#runTotal3",
-    "#runTotal4",
     "#unetFetch",
     "#unetCreate",
     "#vaeFetch",
     "#vaeCreate",
     "#vaeRun1",
-    "#vaeRun2",
-    "#vaeRun3",
-    "#vaeRun4",
-    "#scFetch",
-    "#scCreate",
-    "#scRun1",
-    "#scRun2",
-    "#scRun3",
-    "#scRun4",
   ];
 
   [
     textEncoderFetch,
     textEncoderCreate,
     textEncoderRun1,
-    textEncoderRun2,
-    textEncoderRun3,
-    textEncoderRun4,
+    vaeEncoderFetch,
+    vaeEncoderCreate,
+    vaeEncoderRun1,
     unetRun1,
-    unetRun2,
-    unetRun3,
-    unetRun4,
     runTotal1,
-    runTotal2,
-    runTotal3,
-    runTotal4,
     unetFetch,
     unetCreate,
     vaeFetch,
     vaeCreate,
     vaeRun1,
-    vaeRun2,
-    vaeRun3,
-    vaeRun4,
-    scFetch,
-    scCreate,
-    scRun1,
-    scRun2,
-    scRun3,
-    scRun4,
   ] = elementIds.map((id) => document.querySelector(id));
 
   switch (config.provider) {
@@ -1141,8 +1014,7 @@ const ui = async () => {
       break;
   }
 
-  prompt.value =
-    "a cat under the snow with blue eyes, covered by snow, cinematic style, medium shot, professional photo";
+  prompt.value = "Benjamin Netanyahu holding a white pigeon";
   // Event listener for Ctrl + Enter or CMD + Enter
   prompt.addEventListener("keydown", function (e) {
     if (e.ctrlKey && e.key === "Enter") {
@@ -1155,9 +1027,10 @@ const ui = async () => {
 
   const load_model_ui = () => {
     loading = load_models(models);
-    const img_divs = [img_div_0, img_div_1, img_div_2, img_div_3];
+    const img_divs = [img_div_0];
     img_divs.forEach((div) => div.setAttribute("class", "frame loadwave"));
     buttons.setAttribute("class", "button-group key loading");
+    refetch.disabled = true
   };
 
   load.addEventListener("click", () => {
@@ -1177,6 +1050,9 @@ const ui = async () => {
   // ort.env.wasm.wasmPaths = 'dist/';
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.simd = true;
+  //ort.env.logLevel = "verbose";
+  //ort.env.debug = true;
+
 
   let path = "";
   if (
@@ -1192,13 +1068,8 @@ const ui = async () => {
   tokenizer = await AutoTokenizer.from_pretrained(path);
   tokenizer.pad_token_id = 0;
 
-  if(getSafetyChecker()) {
-    scTr.setAttribute("class", "");
-  } else {
-    scTr.setAttribute("class", "hide");
-  }
 
-  if(!getSafetyChecker()) {
+
     models = {
       unet: {
         // original model from dw, then wm dump new one from local graph optimization.
@@ -1213,6 +1084,13 @@ const ui = async () => {
         opt: { graphOptimizationLevel: "disabled" },
         // opt: { freeDimensionOverrides: { batch_size: 1, sequence_length: 77 } },
       },
+      vae_encoder: {
+        url: "vae_encoder/model.onnx",
+        size: "68.4MB",
+        opt: {
+          freeDimensionOverrides: { batch: 1, channels: 3, height: 512, width: 512 },
+        },
+      },
       vae_decoder: {
         // use gu's model has precision lose in webnn caused by instanceNorm op,
         // covert the model to run instanceNorm in fp32 (insert cast nodes).
@@ -1224,7 +1102,6 @@ const ui = async () => {
         },
       }
     };
-  }
 };
 
 document.addEventListener("DOMContentLoaded", ui, false);
