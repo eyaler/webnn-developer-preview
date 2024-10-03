@@ -76,8 +76,17 @@ body {
   scrollbar-color: var(--main-01), transparent;
 }
 
-#img_canvas_input:is(body:has(#image_to_image:not(:checked), #camera:checked) *) {
+#img_canvas_input, #data_input {
+    cursor: hand;
+}
+
+:is(#img_canvas_input, #data_input):is(body:has(#image_to_image:not(:checked)) *) {
     visibility: hidden;
+}
+
+#data_input > p {
+    margin-top: 0;
+    text-align: center;
 }
 
 #image_strength {
@@ -346,7 +355,7 @@ h1.title span {
   height: 40px;
 }
 
-#data_area div {
+#data_area #data1 {
   padding: 4px 18px;
   background-color: var(--pink);
   color: var(--bg);
@@ -356,11 +365,11 @@ h1.title span {
   display: none;
 }
 
-#data_area div.show {
+#data_area #data1.show {
   display: inline-block;
 }
 
-#data_area div:hover {
+#data_area #data1:hover {
   background-color: var(--main-darker);
   color: var(--bg);
   transform: skew(-15deg);

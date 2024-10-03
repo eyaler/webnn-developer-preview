@@ -1038,13 +1038,50 @@ const ui = async () => {
   tokenizer = await AutoTokenizer.from_pretrained(path);
   tokenizer.pad_token_id = 0;
 
+  await draw_input_image('input.jpg')
+};
+
+document.addEventListener("DOMContentLoaded", ui, false);
+
+async function draw_input_image(src) {
   const img = new Image()
-  img.src = 'input.jpg'
+  img.src = src
   await img.decode()
   img_canvas_input.width = 512
   img_canvas_input.height = 512
   const ctx = img_canvas_input.getContext('2d')
-  ctx.drawImage(img, 0, 0)
-};
+  ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, 512, 512)
+}
 
-document.addEventListener("DOMContentLoaded", ui, false);
+const pickerOpts = {
+  types: [
+    {
+      description: "Images",
+      accept: {
+        "image/*": [".png", ".gif", ".jpeg", ".jpg", ".webp"],
+      },
+    },
+  ],
+  excludeAcceptAllOption: true,
+  multiple: false,
+}
+
+async function upload_image() {
+    const [fileHandle] = await window.showOpenFilePicker(pickerOpts)
+    await draw_input_image(URL.createObjectURL(await fileHandle.getFile()))
+}
+
+async function drop(ev) {
+    ev.preventDefault()
+    img_canvas_input.style.outline = 'none'
+    if (ev.dataTransfer.items && ev.dataTransfer.items[0].kind == 'file')
+        await draw_input_image(URL.createObjectURL(ev.dataTransfer.items[0].getAsFile()))
+}
+
+img_canvas_input.addEventListener('click', upload_image)
+data_input.addEventListener('click', upload_image)
+img_canvas_input.addEventListener('dragover', ev => ev.preventDefault())
+img_canvas_input.addEventListener('dragenter', () => img_canvas_input.style.outline = '10px dashed green')
+img_canvas_input.addEventListener('dragleave', () => img_canvas_input.style.outline = 'none')
+img_canvas_input.addEventListener('dragend', () => img_canvas_input.style.outline = 'none')
+img_canvas_input.addEventListener('drop', ev => drop(ev))
