@@ -1,8 +1,7 @@
 # WebNN Developer Preview
 
 ## Changes in this fork
-
-1. Added sd-turbo [image-to-image](demos/sd-turbo/index.js:557) mode using the [vae encoder](https://huggingface.co/eyaler/sd-turbo-webnn/tree/main/vae_encoder) to initialize latents
+1. Added sd-turbo [image-to-image](demos/sd-turbo/index.js#L558) mode using the [vae encoder](https://huggingface.co/eyaler/sd-turbo-webnn/tree/main/vae_encoder) to initialize latents
 2. Added a [helper util](demos/sd-turbo/fix_instance_norm.py) for casting instance-normalization nodes to float32
 3. Removed sd-turbo safety checks
 
@@ -16,7 +15,8 @@
 
 Run ONNX models in the browser with WebNN. The developer preview unlocks interactive ML on the web that benefits from reduced latency, enhanced privacy and security, and GPU acceleration from DirectML.
 
-[WebNN Developer Preview website](https://microsoft.github.io/webnn-developer-preview/).
+[WebNN Developer Preview website](https://eyaler.github.io/webnn-developer-preview/)
+([was originially](https://microsoft.github.io/webnn-developer-preview/)).
 
 _NOTE: Currently, the supported platforms are Edge/Chromium (support for other platforms is coming soon)._
 
