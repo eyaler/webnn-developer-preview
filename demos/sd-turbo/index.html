@@ -74,7 +74,7 @@
     </div>
     <div class="v9">
         <div id="image_area" class="grid-2">
-            <img id="input_image" src="input.jpg" alt="input image">
+            <canvas id="img_canvas_input"></canvas>
             <div id="img_div_0" class="frame">
                 <div class="loadwave-effect">
                     <div class="loadwave-layer"></div>
@@ -119,14 +119,6 @@
                 <canvas id="img_canvas_0"></canvas>
             </div>
         </div>
-        <div class="grid-2 hide">
-            <div id="test_img">
-                <canvas id="img_canvas_test"></canvas>
-            </div>
-            <div id="safety_img">
-                <canvas id="img_canvas_safety"></canvas>
-            </div>
-        </div>
         <div id="data_area" class="grid-2">
             <div class="show" style="visibility: hidden"></div>
             <div id="data1"></div>
@@ -152,11 +144,11 @@
 
             <label>
                 Image strength
-            <input id="image_strength" type="number" value="1.5" min="0" max="2" step="0.1">
+            <input id="image_strength" type="number" value="2" min="0" max="4" step="0.1">
             </label>
         </div>
         <div id="dev" class="grid-2 mt-1">
-            <div class="footerinfo">
+            <div id="log" class="footerinfo">
                 <div id="status" class="log-output"></div>
                 <div id="webnnstatus"><span id="circle"></span> <span id="info">WebNN</span></div>
                 <div id="versions">

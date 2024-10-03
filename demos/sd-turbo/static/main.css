@@ -76,7 +76,7 @@ body {
   scrollbar-color: var(--main-01), transparent;
 }
 
-img:is(body:has(#image_to_image:not(:checked), #camera:checked) *) {
+#img_canvas_input:is(body:has(#image_to_image:not(:checked), #camera:checked) *) {
     visibility: hidden;
 }
 
@@ -299,7 +299,6 @@ h1.title span {
   border: 1px solid var(--border);
   border-radius: 50px;
   margin: 10px auto;
-  max-width: 75vw;
 }
 
 .button-group:hover {
@@ -336,7 +335,7 @@ h1.title span {
 }
 
 #image_area {
-  margin: 20px auto 10px auto;
+  margin: 10px auto 10px auto;
   min-height: 40vh;
   justify-items: center;
 }
@@ -361,20 +360,12 @@ h1.title span {
   display: inline-block;
 }
 
-#data_area div.nsfw {
-  background-color: var(--font);
-}
-
 #data_area div:hover {
   background-color: var(--main-darker);
   color: var(--bg);
   transform: skew(-15deg);
   text-shadow: rgba(0, 0, 0, 0.8) 1px 1px 1px;
   box-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
-}
-
-#data_area div.nsfw:hover {
-  background-color: rgba(191, 0, 0, 1);
 }
 
 .mt-1 {
@@ -449,7 +440,7 @@ h1.title span {
 }
 
 .log-output {
-  height: 15vh;
+  height: 9lh;
   padding: 10px 10px;
   background-color: var(--bg-2);
   border: 1px solid var(--border);
@@ -533,19 +524,6 @@ h1.title span {
 
 .frame.done svg {
   display: none;
-}
-
-.frame.done.nsfw {
-  border: 1px solid white;
-}
-
-.frame.done.nsfw:hover {
-  border: 1px solid rgba(191, 0, 0, 1);
-}
-
-.frame.done.nsfw canvas {
-  filter: blur(20px);
-  opacity: 0.6;
 }
 
 .frame.done canvas {
@@ -846,6 +824,10 @@ svg {
 
 #versions a:hover svg path {
   fill: var(--green);
+}
+
+#log {
+  align-self: flex-start;
 }
 
 #data {

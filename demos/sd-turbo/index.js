@@ -30,11 +30,8 @@ const logError = (i) => {
 function getConfig() {
   const query = window.location.search.substring(1);
   var config = {
-    model: "https://huggingface.co/microsoft/sd-turbo-webnn/resolve/main",
-    vae_encoder_path: "https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main",
-     //"https://huggingface.co/tlwu/sd-turbo-onnxruntime/resolve/main",
+    model: "https://huggingface.co/eyaler/sd-turbo-webnn/resolve/main",
     mode: "none",
-    safetychecker: false,
     provider: "webnn",
     device: "gpu",
     threads: "1",
@@ -209,7 +206,7 @@ async function load_models(models) {
         modelUrl = `${config.model}/${name}/model.onnx`;
       } else if (name == "vae_encoder") {
         modelNameInLog = "VAE Encoder";
-        modelUrl = `${config.vae_encoder_path}/${name}/model.onnx`;
+        modelUrl = `${config.model}/${name}/model.onnx`;
       }
       log(`[Load] Loading model ${modelNameInLog} · ${model.size}`);
       let modelBuffer = await getModelOPFS(`sd_turbo_${name}`, modelUrl, refetch.checked);
@@ -290,13 +287,13 @@ let models = {
     // original model from dw, then wm dump new one from local graph optimization.
     url: "unet/model_layernorm.onnx",
     size: "1.61GB",
-    opt: { graphOptimizationLevel: "disabled" }, // avoid wasm heap issue (need Wasm memory 64)
+    opt: { graphOptimizationLevel: "disabled", }, // avoid wasm heap issue (need Wasm memory 64)
   },
   text_encoder: {
     // orignal model from gu, wm convert the output to fp16.
     url: "text_encoder/model_layernorm.onnx",
     size: "649MB",
-    opt: { graphOptimizationLevel: "disabled" },
+    opt: { graphOptimizationLevel: "disabled", },
     // opt: { freeDimensionOverrides: { batch_size: 1, sequence_length: 77 } },
   },
   vae_decoder: {
@@ -313,19 +310,7 @@ let models = {
     url: "vae_encoder/model.onnx",
     size: "68.4MB",
     opt: {
-      freeDimensionOverrides: { batch: 1, channels: 3, height: 512, width: 512 },
-    },
-  },
-  safety_checker: {
-    url: "safety_checker/model.onnx",
-    size: "580MB",
-    opt: {
-      freeDimensionOverrides: {
-        batch: 1,
-        channels: 3,
-        height: 224,
-        width: 224,
-      },
+      freeDimensionOverrides: { batch_size: 1, num_channels: 3, height: 512, width: 512 },
     },
   },
 };
@@ -441,7 +426,7 @@ function normalizeImageData(imageData) {
   return { data: array, width: width, height: height };
 }
 
-function get_tensor_from_image(imageData, format, scaled_noise, norm=2, offset=1) {
+function get_tensor_from_image(imageData, format, norm=2, offset=1) {
   const { data, width, height } = imageData;
   const numPixels = width * height;
   const channels = 3;
@@ -504,6 +489,9 @@ function draw_image(t, image_nr) {
 }
 
 async function generate_image() {
+  if (generate.disabled)
+    return
+  generate.disabled = true
   const img_divs = [img_div_0];
   img_divs.forEach((div) => div.setAttribute("class", "frame"));
 
@@ -566,16 +554,11 @@ async function generate_image() {
             latent_shape
           );
 
-
       // vae_encoder
       let latent
-      let latent16
       if (image_to_image.checked) {
-        const canvas = document.createElement('canvas')
-        canvas.width = 512
-        canvas.height = 512
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(input_image, 0, 0)
+        start = performance.now();
+        const ctx = img_canvas_input.getContext('2d')
         const image_data = ctx.getImageData(0, 0, 512, 512)
         const output = await models.vae_encoder.sess.run({
             sample: get_tensor_from_image(image_data, 'NCHW', 2, 1),
@@ -599,11 +582,10 @@ async function generate_image() {
         }
       } else {
         latent = noise
-
       }
 
         const scaled = scale_model_inputs(latent, sigma);
-        latent16 = new ort.Tensor(
+        const latent16 = new ort.Tensor(
           "float16",
           convertToUint16Array(scaled.data),
           scaled.dims
@@ -677,11 +659,9 @@ async function generate_image() {
         document.querySelector(`#data${j + 1}`).innerHTML = `${j + 1}`;
       }
 
-
         document
         .getElementById(`img_div_${j}`)
         .setAttribute("class", "frame done");
-
 
       // let out_image = new ort.Tensor("float32", convertToFloat32Array(out_images.data), out_images.dims);
       // draw_out_image(out_image);
@@ -692,6 +672,7 @@ async function generate_image() {
   } catch (e) {
     log("[Error] " + e.stack);
   }
+  generate.disabled = false
 }
 
 async function hasFp16() {
@@ -1047,61 +1028,22 @@ const ui = async () => {
     }
   });
 
-  // ort.env.wasm.wasmPaths = 'dist/';
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.simd = true;
   //ort.env.logLevel = "verbose";
   //ort.env.debug = true;
 
-
-  let path = "";
-  if (
-    location.href.toLowerCase().indexOf("github.io") > -1 ||
-    location.href.toLowerCase().indexOf("huggingface.co") > -1 ||
-    location.href.toLowerCase().indexOf("vercel.app") > -1
-  ) {
-    path = "microsoft/sd-turbo-webnn/resolve/main/tokenizer";
-  } else {
-    path = "../../demos/sd-turbo/models/tokenizer";
-  }
-
+  const path = "eyaler/sd-turbo-webnn/resolve/main/tokenizer";
   tokenizer = await AutoTokenizer.from_pretrained(path);
   tokenizer.pad_token_id = 0;
 
-
-
-    models = {
-      unet: {
-        // original model from dw, then wm dump new one from local graph optimization.
-        url: "unet/model_layernorm.onnx",
-        size: "1.61GB",
-        opt: { graphOptimizationLevel: "disabled" }, // avoid wasm heap issue (need Wasm memory 64)
-      },
-      text_encoder: {
-        // orignal model from gu, wm convert the output to fp16.
-        url: "text_encoder/model_layernorm.onnx",
-        size: "649MB",
-        opt: { graphOptimizationLevel: "disabled" },
-        // opt: { freeDimensionOverrides: { batch_size: 1, sequence_length: 77 } },
-      },
-      vae_encoder: {
-        url: "vae_encoder/model.onnx",
-        size: "68.4MB",
-        opt: {
-          freeDimensionOverrides: { batch: 1, channels: 3, height: 512, width: 512 },
-        },
-      },
-      vae_decoder: {
-        // use gu's model has precision lose in webnn caused by instanceNorm op,
-        // covert the model to run instanceNorm in fp32 (insert cast nodes).
-        url: "vae_decoder/model.onnx",
-        size: "94.5MB",
-        // opt: { freeDimensionOverrides: { batch_size: 1, num_channels_latent: 4, height_latent: 64, width_latent: 64 } }
-        opt: {
-          freeDimensionOverrides: { batch: 1, channels: 4, height: 64, width: 64 },
-        },
-      }
-    };
+  const img = new Image()
+  img.src = 'input.jpg'
+  await img.decode()
+  img_canvas_input.width = 512
+  img_canvas_input.height = 512
+  const ctx = img_canvas_input.getContext('2d')
+  ctx.drawImage(img, 0, 0)
 };
 
 document.addEventListener("DOMContentLoaded", ui, false);
