@@ -1,6 +1,6 @@
 # WebNN Developer Preview
 
-## Changes in this fork
+## This fork
 1. Added sd-turbo [image-to-image](demos/sd-turbo/index.js#L558) mode using the [vae encoder](https://huggingface.co/eyaler/sd-turbo-webnn/tree/main/vae_encoder) to initialize latents
 2. Added a [helper util](demos/sd-turbo/fix_instance_norm.py) for casting instance-normalization nodes to float32
 3. Removed sd-turbo safety checks

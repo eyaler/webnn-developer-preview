@@ -76,7 +76,7 @@ body {
   scrollbar-color: var(--main-01), transparent;
 }
 
-#img_canvas_input, #data_input {
+:is(#img_canvas_input, #data_input):is(body:has(#use_camera:not(:checked)) *) {
     cursor: hand;
 }
 
@@ -85,7 +85,9 @@ body {
 }
 
 #data_input > p {
-    margin-top: 0;
+    font-size: .8em;
+    color: green;
+    margin-top: .5em;
     text-align: center;
 }
 
@@ -306,7 +308,6 @@ h1.title span {
   padding: 4px;
   background-color: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 50px;
   margin: 10px auto;
 }
 
@@ -449,7 +450,7 @@ h1.title span {
 }
 
 .log-output {
-  height: 9lh;
+  height: 8lh;
   padding: 10px 10px;
   background-color: var(--bg-2);
   border: 1px solid var(--border);
@@ -510,7 +511,6 @@ h1.title span {
   box-shadow: inset 0 0 1px 0 rgba(0, 0, 0, 0.2);
   height: 100%;
   width: 100%;
-  border-radius: 5px;
   display: grid;
   align-items: center;
   justify-items: center;
@@ -537,7 +537,6 @@ h1.title span {
 
 .frame.done canvas {
   display: inline-block;
-  border-radius: 5px;
   box-shadow: inset 0 0 1px 0 rgba(0, 0, 0, 0.2);
 }
 

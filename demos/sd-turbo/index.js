@@ -182,6 +182,7 @@ const updateProgress = () => {
     vaeDecoderCompileProgress + vaeEncoderCompileProgress;
     }
 
+let load_finished
 /*
  * load models used in the pipeline
  */
@@ -272,13 +273,17 @@ async function load_models(models) {
   log("[Session Create] Ready to generate images");
   let image_area = document.querySelectorAll("#image_area>div");
   image_area.forEach((i) => {
-    i.setAttribute("class", "frame ready");
+    i.setAttribute("class", "frame done");
   });
   buttons.setAttribute("class", "button-group key loaded");
   generate.disabled = false;
   document
     .querySelector("#user-input")
     .setAttribute("class", "form-control enabled");
+        document
+  load_finished = true
+  generate_image()
+
 }
 
 const config = getConfig();
@@ -489,19 +494,17 @@ function draw_image(t, image_nr) {
   canvas.getContext("2d").putImageData(imageData, 0, 0);
 }
 
+
+let last_prompt, last_hidden_state, generating, noise
+
 async function generate_image() {
-  if (generate.disabled)
+  if (generating)
     return
+  generating = true
   generate.disabled = true
-  const img_divs = [img_div_0];
-  img_divs.forEach((div) => div.setAttribute("class", "frame"));
 
   try {
-    textEncoderRun1.innerHTML = "";
-    unetRun1.innerHTML = "";
-    vaeRun1.innerHTML = "";
-    vaeEncoderRun1.innerHTML = "";
-    runTotal1.innerHTML = "";
+    let start
 
     if(getMode()) {
       for (let i = 1; i <= config.images; i++) {
@@ -520,160 +523,158 @@ async function generate_image() {
     await loading;
 
     const prompt = document.querySelector("#user-input");
-    const { input_ids } = await tokenizer(prompt.value, {
-      padding: true,
-      max_length: 77,
-      truncation: true,
-      return_tensor: false,
-    });
-
-    // text_encoder
-    let start = performance.now();
-    const { last_hidden_state } = await models.text_encoder.sess.run({
-      input_ids: new ort.Tensor("int32", input_ids, [1, input_ids.length]),
-    });
-    let sessionRunTimeTextEncode = (performance.now() - start).toFixed(2);
-    textEncoderRun1.innerHTML = sessionRunTimeTextEncode;
-
-    if (getMode()) {
-      log(
-        `[Session Run] Text encode execution time: ${sessionRunTimeTextEncode}ms`
-      );
-    } else {
-      log(`[Session Run] Text encode completed`);
-    }
-
-    for (let j = 0; j < config.images; j++) {
-        document
-            .getElementById(`img_div_${j}`)
-            .setAttribute("class", "frame inferencing");
-          let startTotal = performance.now();
-          const latent_shape = [1, 4, 64, 64];
-
-        const noise = new ort.Tensor(
-            randn_latents(latent_shape, sigma),
-            latent_shape
-          );
-
-      // vae_encoder
-      let latent
-      if (image_to_image.checked) {
-        start = performance.now();
-        const ctx = img_canvas_input.getContext('2d')
-        const image_data = ctx.getImageData(0, 0, 512, 512)
-        const output = await models.vae_encoder.sess.run({
-            sample: get_tensor_from_image(image_data, 'NCHW', 2, 1),
+    if (prompt.value != last_prompt) {
+        const { input_ids } = await tokenizer(prompt.value, {
+          padding: true,
+          max_length: 77,
+          truncation: true,
+          return_tensor: false,
         });
-        latent = convertToFloat32Array(output.latent_sample.data).map((value, index) => value*vae_scaling_factor*image_strength.valueAsNumber + noise.data[index])
-        latent = new ort.Tensor(
-          "float32",
-            latent,
-            output.latent_sample.dims);
-        let vaeEncoderRunTime = (performance.now() - start).toFixed(2);
-        document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = vaeEncoderRunTime;
+
+        // text_encoder
+        start = performance.now();
+        let result = await models.text_encoder.sess.run({
+          input_ids: new ort.Tensor("int32", input_ids, [1, input_ids.length]),
+        });
+        last_hidden_state = result.last_hidden_state
+        let sessionRunTimeTextEncode = (performance.now() - start).toFixed(2);
+        textEncoderRun1.innerHTML = sessionRunTimeTextEncode;
 
         if (getMode()) {
           log(
-            `[Session Run][Image ${
-              j + 1
-            }] VAE encode execution time: ${vaeEncoderRunTime}ms`
+            `[Session Run] Text encode execution time: ${sessionRunTimeTextEncode}ms`
           );
         } else {
-          log(`[Session Run][Image ${j + 1}] VAE encode completed`);
+          log(`[Session Run] Text encode completed`);
         }
-      } else {
-        latent = noise
-      }
-
-        const scaled = scale_model_inputs(latent, sigma);
-        const latent16 = new ort.Tensor(
-          "float16",
-          convertToUint16Array(scaled.data),
-          scaled.dims
-        )
-
-      // unet
-      start = performance.now();
-      let feed = {
-        sample: latent16,
-        timestep: new ort.Tensor("float16", new Uint16Array([toHalf(999)]), [
-          1,
-        ]),
-        encoder_hidden_states: last_hidden_state,
-      };
-      let { out_sample } = await models.unet.sess.run(feed);
-      let unetRunTime = (performance.now() - start).toFixed(2);
-      document.getElementById(`unetRun${j + 1}`).innerHTML = unetRunTime;
-
-      if (getMode()) {
-        log(
-          `[Session Run][Image ${j + 1}] UNet execution time: ${unetRunTime}ms`
-        );
-      } else {
-        log(`[Session Run][Image ${j + 1}] UNet completed`);
-      }
-
-      // scheduler
-      const new_latents = step(
-        new ort.Tensor(
-          "float32",
-          convertToFloat32Array(out_sample.data),
-          out_sample.dims
-        ),
-        latent, sigma, gamma, vae_scaling_factor
-      );
-
-      // vae_decoder
-      start = performance.now();
-      const { sample } = await models.vae_decoder.sess.run({
-        latent_sample: new_latents,
-      });
-      let vaeRunTime = (performance.now() - start).toFixed(2);
-      document.getElementById(`vaeRun${j + 1}`).innerHTML = vaeRunTime;
-
-      if (getMode()) {
-        log(
-          `[Session Run][Image ${
-            j + 1
-          }] VAE decode execution time: ${vaeRunTime}ms`
-        );
-      } else {
-        log(`[Session Run][Image ${j + 1}] VAE decode completed`);
-      }
-
-      draw_image(sample, j);
-
-      let totalRunTime = (
-        performance.now() +
-        Number(sessionRunTimeTextEncode) -
-        startTotal
-      ).toFixed(2);
-      if (getMode()) {
-        log(`[Total] Image ${j + 1} execution time: ${totalRunTime}ms`);
-      }
-      document.getElementById(`runTotal${j + 1}`).innerHTML = totalRunTime;
-      document.querySelector(`#data${j + 1}`).setAttribute("class", "show");
-
-      if(getMode()){
-        document.querySelector(`#data${j + 1}`).innerHTML = totalRunTime + "ms";
-      } else {
-        document.querySelector(`#data${j + 1}`).innerHTML = `${j + 1}`;
-      }
-
-        document
-        .getElementById(`img_div_${j}`)
-        .setAttribute("class", "frame done");
-
-      // let out_image = new ort.Tensor("float32", convertToFloat32Array(out_images.data), out_images.dims);
-      // draw_out_image(out_image);
+        last_prompt = prompt.value
     }
+    const j = 0
+      let startTotal = performance.now();
+      const latent_shape = [1, 4, 64, 64];
+
+    if (!noise || !use_camera.checked)
+        noise = new ort.Tensor(
+            randn_latents(latent_shape, sigma),
+            latent_shape
+        );
+
+  // vae_encoder
+  let latent
+  if (image_to_image.checked) {
+    start = performance.now();
+    const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
+    const image_data = ctx.getImageData(0, 0, 512, 512)
+    const output = await models.vae_encoder.sess.run({
+        sample: get_tensor_from_image(image_data, 'NCHW', 2, 1),
+    });
+    latent = convertToFloat32Array(output.latent_sample.data).map((value, index) => value*vae_scaling_factor*image_strength.valueAsNumber + noise.data[index])
+    latent = new ort.Tensor(
+      "float32",
+        latent,
+        output.latent_sample.dims);
+    let vaeEncoderRunTime = (performance.now() - start).toFixed(2);
+    document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = vaeEncoderRunTime;
+
+    if (getMode()) {
+      log(
+        `[Session Run][Image ${
+          j + 1
+        }] VAE encode execution time: ${vaeEncoderRunTime}ms`
+      );
+    } else {
+      log(`[Session Run][Image ${j + 1}] VAE encode completed`);
+    }
+  } else {
+    latent = noise
+  }
+
+    const scaled = scale_model_inputs(latent, sigma);
+    const latent16 = new ort.Tensor(
+      "float16",
+      convertToUint16Array(scaled.data),
+      scaled.dims
+    )
+
+  // unet
+  start = performance.now();
+  let feed = {
+    sample: latent16,
+    timestep: new ort.Tensor("float16", new Uint16Array([toHalf(999)]), [
+      1,
+    ]),
+    encoder_hidden_states: last_hidden_state,
+  };
+  let { out_sample } = await models.unet.sess.run(feed);
+  let unetRunTime = (performance.now() - start).toFixed(2);
+  document.getElementById(`unetRun${j + 1}`).innerHTML = unetRunTime;
+
+  if (getMode()) {
+    log(
+      `[Session Run][Image ${j + 1}] UNet execution time: ${unetRunTime}ms`
+    );
+  } else {
+    log(`[Session Run][Image ${j + 1}] UNet completed`);
+  }
+
+  // scheduler
+  const new_latents = step(
+    new ort.Tensor(
+      "float32",
+      convertToFloat32Array(out_sample.data),
+      out_sample.dims
+    ),
+    latent, sigma, gamma, vae_scaling_factor
+  );
+
+  // vae_decoder
+  start = performance.now();
+  const { sample } = await models.vae_decoder.sess.run({
+    latent_sample: new_latents,
+  });
+  let vaeRunTime = (performance.now() - start).toFixed(2);
+  document.getElementById(`vaeRun${j + 1}`).innerHTML = vaeRunTime;
+
+  if (getMode()) {
+    log(
+      `[Session Run][Image ${
+        j + 1
+      }] VAE decode execution time: ${vaeRunTime}ms`
+    );
+  } else {
+    log(`[Session Run][Image ${j + 1}] VAE decode completed`);
+  }
+
+  draw_image(sample, j);
+
+  let totalRunTime = (
+    performance.now() -
+    startTotal
+  ).toFixed(2);
+  if (getMode()) {
+    log(`[Total] Image ${j + 1} execution time: ${totalRunTime}ms`);
+  }
+  document.getElementById(`runTotal${j + 1}`).innerHTML = totalRunTime;
+  document.querySelector(`#data${j + 1}`).setAttribute("class", "show");
+
+  if(getMode()){
+    document.querySelector(`#data${j + 1}`).innerHTML = totalRunTime + "ms";
+  } else {
+    document.querySelector(`#data${j + 1}`).innerHTML = `${j + 1}`;
+  }
+
+  // let out_image = new ort.Tensor("float32", convertToFloat32Array(out_images.data), out_images.dims);
+  // draw_out_image(out_image);
+
     // this is a gpu-buffer we own, so we need to dispose it
-    last_hidden_state.dispose();
+    // last_hidden_state.dispose();
     log("[Info] Images generation completed");
   } catch (e) {
     log("[Error] " + e.stack);
   }
-  generate.disabled = false
+  generating = false
+  if (!use_camera.checked)
+    generate.disabled = false
 }
 
 async function hasFp16() {
@@ -1008,9 +1009,9 @@ const ui = async () => {
   });
 
   const load_model_ui = () => {
-    loading = load_models(models);
     const img_divs = [img_div_0];
     img_divs.forEach((div) => div.setAttribute("class", "frame loadwave"));
+    loading = load_models(models);
     buttons.setAttribute("class", "button-group key loading");
     refetch.disabled = true
   };
@@ -1043,14 +1044,17 @@ const ui = async () => {
 
 document.addEventListener("DOMContentLoaded", ui, false);
 
+
 async function draw_input_image(src) {
+  use_camera.checked = false
   const img = new Image()
   img.src = src
   await img.decode()
   img_canvas_input.width = 512
   img_canvas_input.height = 512
-  const ctx = img_canvas_input.getContext('2d')
-  ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, 512, 512)
+  const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
+  const minDim = Math.min(img.width, img.height)
+  ctx.drawImage(img, (img.width-minDim)/2, (img.height-minDim)/2, minDim, minDim, 0, 0, 512, 512)
 }
 
 const pickerOpts = {
@@ -1085,3 +1089,31 @@ img_canvas_input.addEventListener('dragenter', () => img_canvas_input.style.outl
 img_canvas_input.addEventListener('dragleave', () => img_canvas_input.style.outline = 'none')
 img_canvas_input.addEventListener('dragend', () => img_canvas_input.style.outline = 'none')
 img_canvas_input.addEventListener('drop', ev => drop(ev))
+
+let stream
+use_camera.addEventListener('change', async () => {
+    if (use_camera.checked) {
+        const video = document.createElement('video')
+        stream = await navigator.mediaDevices.getUserMedia({video: true})
+        video.srcObject = stream
+        video.play()
+        const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
+        ctx.translate(512, 0)
+        ctx.scale(-1, 1)
+        const updateCanvas = () => {
+            if (use_camera.checked) {
+                const minDim = Math.min(video.videoWidth, video.videoHeight)
+                ctx.drawImage(video, (video.videoWidth-minDim)/2, (video.videoHeight-minDim)/2, minDim, minDim, 0, 0, 512, 512)
+                if (load_finished)
+                    generate_image()
+                video.requestVideoFrameCallback(updateCanvas)
+            }
+        }
+        video.requestVideoFrameCallback(updateCanvas);
+    } else {
+        if (stream)
+            stream.getTracks().forEach(track => track.stop())
+        if (!generating)
+            generate_image.disabled = false
+    }
+})

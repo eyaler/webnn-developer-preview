@@ -130,7 +130,7 @@
         <div class="button-group key" id="buttons">
             <textarea class="form-control" id="user-input" placeholder="Enter your prompt"></textarea>
             <button id="load" class="button" disabled>
-                Load Models</button>
+                Load Models and Generate Image</button>
             <button id="generate" class="button" disabled>
                 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 256 256">
                     <path fill="#ffffff"
@@ -139,11 +139,15 @@
                 Generate Image</button>
             <label>
                 <input type="checkbox" id="refetch">
-                Force download models
+                Re-download models
             </label>
             <label>
                 <input type="checkbox" id="image_to_image" checked>
                 Image to image
+            </label>
+            <label>
+                <input type="checkbox" id="use_camera">
+                Use camera
             </label>
 
             <label>
@@ -203,7 +207,7 @@
                         <td id="vaeRun1">&nbsp;</td>
                     </tr>
                 </table>
-                <div><sup>*</sup> Total Execution Time = Session Run (Text Encoder + VAE Encoder + UNet + VAE Decoder) + Image
+                <div><sup>*</sup> Total Execution Time = Session Run (VAE Encoder + UNet + VAE Decoder) + Image
                     Drawing</div>
             </div>
         </div>
