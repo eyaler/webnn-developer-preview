@@ -506,18 +506,6 @@ async function generate_image() {
   try {
     let start
 
-    if(getMode()) {
-      for (let i = 1; i <= config.images; i++) {
-        document.querySelector(`#data${i}`).innerHTML = "... ms";
-        document.querySelector(`#data${i}`).setAttribute("class", "show");
-      }
-    } else {
-      for (let i = 1; i <= config.images; i++) {
-        document.querySelector(`#data${i}`).innerHTML = "...";
-        document.querySelector(`#data${i}`).setAttribute("class", "show");
-      }
-    }
-
     log(`[Session Run] Beginning`);
 
     await loading;
@@ -655,13 +643,6 @@ async function generate_image() {
     log(`[Total] Image ${j + 1} execution time: ${totalRunTime}ms`);
   }
   document.getElementById(`runTotal${j + 1}`).innerHTML = totalRunTime;
-  document.querySelector(`#data${j + 1}`).setAttribute("class", "show");
-
-  if(getMode()){
-    document.querySelector(`#data${j + 1}`).innerHTML = totalRunTime + "ms";
-  } else {
-    document.querySelector(`#data${j + 1}`).innerHTML = `${j + 1}`;
-  }
 
   // let out_image = new ort.Tensor("float32", convertToFloat32Array(out_images.data), out_images.dims);
   // draw_out_image(out_image);
@@ -673,7 +654,7 @@ async function generate_image() {
     log("[Error] " + e.stack);
   }
   generating = false
-  if (!use_camera.checked)
+  if (!use_camera.checked || !image_to_image.checked)
     generate.disabled = false
 }
 
@@ -1091,17 +1072,19 @@ img_canvas_input.addEventListener('dragend', () => img_canvas_input.style.outlin
 img_canvas_input.addEventListener('drop', ev => drop(ev))
 
 let stream
+image_to_image.addEventListener('change', () => use_camera.dispatchEvent(new Event('change')))
 use_camera.addEventListener('change', async () => {
-    if (use_camera.checked) {
+    if (use_camera.checked && image_to_image.checked) {
         const video = document.createElement('video')
         stream = await navigator.mediaDevices.getUserMedia({video: true})
         video.srcObject = stream
         video.play()
         const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
+        ctx.save()
         ctx.translate(512, 0)
         ctx.scale(-1, 1)
         const updateCanvas = () => {
-            if (use_camera.checked) {
+            if (use_camera.checked && image_to_image.checked) {
                 const minDim = Math.min(video.videoWidth, video.videoHeight)
                 ctx.drawImage(video, (video.videoWidth-minDim)/2, (video.videoHeight-minDim)/2, minDim, minDim, 0, 0, 512, 512)
                 if (load_finished)
@@ -1111,6 +1094,8 @@ use_camera.addEventListener('change', async () => {
         }
         video.requestVideoFrameCallback(updateCanvas);
     } else {
+        const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
+        ctx.restore()
         if (stream)
             stream.getTracks().forEach(track => track.stop())
         if (!generating)
