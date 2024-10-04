@@ -1,13 +1,13 @@
 # WebNN Developer Preview
 
-## This fork
-1. Added sd-turbo [image-to-image](demos/sd-turbo/index.js#L558) mode using the [vae encoder](https://huggingface.co/eyaler/sd-turbo-webnn/tree/main/vae_encoder) to initialize latents
-2. Added a [helper util](demos/sd-turbo/fix_instance_norm.py) for casting instance-normalization nodes to float32
-3. Removed sd-turbo safety checks
+## This fork ([demo](https://eyaler.github.io/webnn-developer-preview/))
+1. Added sd-turbo [image-to-image](demos/sd-turbo/index.js) mode using the [vae encoder](https://huggingface.co/eyaler/sd-turbo-webnn/tree/main/vae_encoder) to initialize latents
+2. Added camera input option for the above (I can get up to 2 fps with an RTX 3070 TI laptop GPU on Windows)
+3. Added a helper [script](demos/sd-turbo/fix_instance_norm.py) for casting instance-normalization nodes to float32 (which has critical numerical issues with float16)
+4. Removed sd-turbo safety checks ;)
 
 ### Known issues:
-
-1. With an RTX 3070 TI laptop GPU on Windows, I can get up to 2 fps. However, run times of VAE encoder and UNET are inconsistent and can be slower by 10x
+1. Run times of VAE encoder and UNET are inconsistent and are sometimes slower by 10x
 2. The "image strength" parameter is a hack
 ---
 
