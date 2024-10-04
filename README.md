@@ -7,8 +7,8 @@
 
 ### Known issues:
 
-1. Run times of VAE encoder and UNET are inconsistent and can be too slow by 10x
-
+1. With an RTX 3070 TI laptop GPU on Windows, I can get up to 2 fps. However, run times of VAE encoder and UNET are inconsistent and can be slower by 10x
+2. The "image strength" parameter is a hack
 ---
 
 Run ONNX models in the browser with WebNN. The developer preview unlocks interactive ML on the web that benefits from reduced latency, enhanced privacy and security, and GPU acceleration from DirectML.
