@@ -8,7 +8,6 @@
 ### Known issues:
 
 1. Run times of VAE encoder and UNET are inconsistent and can be too slow by 10x
-2. The image latents are probably not sampled correctly
 
 ---
 

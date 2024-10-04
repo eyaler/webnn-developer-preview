@@ -283,7 +283,6 @@ async function load_models(models) {
         document
   load_finished = true
   generate_image()
-
 }
 
 const config = getConfig();
@@ -365,7 +364,7 @@ function scale_model_inputs(t, sigma) {
  * Maybe next step is to support all sd flavors and create a small helper model in onnx can deal
  * much more efficient with latents.
  */
-function step(model_output, sample, sigma, gamma, vae_scaling_factor) {
+function step(model_output, sample, sigma, gamma, scaling_factor) {
   const d_o = new Float32Array(model_output.data.length);
   const prev_sample = new ort.Tensor(d_o, model_output.dims);
   const sigma_hat = sigma * (gamma + 1);
@@ -374,7 +373,7 @@ function step(model_output, sample, sigma, gamma, vae_scaling_factor) {
     const pred_original_sample = sample.data[i] - sigma_hat * model_output.data[i];
     const derivative = (sample.data[i] - pred_original_sample) / sigma_hat;
     const dt = 0 - sigma_hat;
-    d_o[i] = (sample.data[i] + derivative * dt) / vae_scaling_factor;
+    d_o[i] = (sample.data[i] + derivative * dt) / scaling_factor;
   }
   return prev_sample;
 }
@@ -499,7 +498,7 @@ let last_prompt, last_hidden_state, generating, noise
 
 async function generate_image() {
   if (generating)
-    return
+    return 0
   generating = true
   generate.disabled = true
 
@@ -553,14 +552,11 @@ async function generate_image() {
     start = performance.now();
     const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})
     const image_data = ctx.getImageData(0, 0, 512, 512)
-    const output = await models.vae_encoder.sess.run({
+    const {latent_sample} = await models.vae_encoder.sess.run({
         sample: get_tensor_from_image(image_data, 'NCHW', 2, 1),
     });
-    latent = convertToFloat32Array(output.latent_sample.data).map((value, index) => value*vae_scaling_factor*image_strength.valueAsNumber + noise.data[index])
-    latent = new ort.Tensor(
-      "float32",
-        latent,
-        output.latent_sample.dims);
+    latent = convertToFloat32Array(latent_sample.data).map((value, index) => value*vae_scaling_factor*image_strength.valueAsNumber + noise.data[index])
+    latent = new ort.Tensor("float32", latent, latent_sample.dims);
     let vaeEncoderRunTime = (performance.now() - start).toFixed(2);
     document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = vaeEncoderRunTime;
 
@@ -653,9 +649,10 @@ async function generate_image() {
   } catch (e) {
     log("[Error] " + e.stack);
   }
-  generating = false
   if (!use_camera.checked || !image_to_image.checked)
     generate.disabled = false
+  generating = false
+  return 1
 }
 
 async function hasFp16() {
@@ -982,12 +979,24 @@ const ui = async () => {
   // Event listener for Ctrl + Enter or CMD + Enter
   prompt.addEventListener("keydown", function (e) {
     if (e.ctrlKey && e.key === "Enter") {
-      generate_image();
+      if (load_finished)
+            generate_image()
+        else
+            load_model_ui()
     }
   });
   generate.addEventListener("click", function (e) {
     generate_image();
   });
+  image_strength.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+        if (load_finished)
+            generate_image()
+        else
+            load_model_ui()
+    }
+  });
+
 
   const load_model_ui = () => {
     const img_divs = [img_div_0];
