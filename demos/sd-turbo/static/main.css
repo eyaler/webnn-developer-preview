@@ -54,6 +54,8 @@
   --pink: rgba(255, 0, 129, 1);
   --main-alpha-2: rgba(230, 230, 230, 0.4);
   --main-alpha: rgba(230, 230, 230, 0.2);
+  --highlight-05: rgba(39, 94, 254, 0.5);
+  --white-02: rgba(255, 255, 255, 0.2);
 }
 
 * {
@@ -74,6 +76,11 @@ body {
 body {
   scrollbar-width: auto;
   scrollbar-color: var(--main-01), transparent;
+}
+
+#use_camera_label {
+    font-weight: bold;
+    color: red;
 }
 
 :is(#img_canvas_input, #data_input):is(body:has(#use_camera:not(:checked)) *) {
@@ -1040,4 +1047,35 @@ svg {
   h1 {
     font-size: 0.9rem;
   }
+}
+
+.archive {
+  position: fixed;
+  right: 1.4rem;
+  top: .7rem;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: end;
+  gap: 0.5rem;
+
+}
+
+.icon {
+  width: 42px;
+  height: 42px;
+  font-size: 0;
+  display: grid;
+  padding: 0;
+  background: #fff;
+}
+
+.github {
+  background: var(--highlight-05) url(../../../assets/icon/github.svg) no-repeat 50% 50%;
+  background-size: 32px;
+}
+
+.github:hover {
+  background: blue url(../../../assets/icon/github.svg) no-repeat 50% 50%;
+  background-size: 38px;
 }
