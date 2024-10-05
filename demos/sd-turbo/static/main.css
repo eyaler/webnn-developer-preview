@@ -83,10 +83,6 @@ body {
     color: red;
 }
 
-:is(#img_canvas_input, #data_input):is(body:has(#use_camera:not(:checked)) *) {
-    cursor: hand;
-}
-
 :is(#img_canvas_input, #data_input):is(body:has(#image_to_image:not(:checked)) *) {
     visibility: hidden;
 }
