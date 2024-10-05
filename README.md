@@ -64,27 +64,25 @@ This model is meant to be used with the corresponding sample on this repo for ed
 
 ## Run WebNN Developer Preview
 
-### Install Dependencies
+### Run the website
 
+**Enabling WebNN**
+
+1. Requires Windows 11 v21H2 (DML 1.6.0) or higher and a GPU, for support of "expand" and "layerNormalization" ops. See [WebNN implementation status](https://webmachinelearning.github.io/webnn-status/)
+2. Requires *Chromium desktop* (e.g. Chrome, Edge) 129 or higher
+3. Enable `chrome://flags/#web-machine-learning-neural-network` and relaunch the browser
+4. Enable graphics/hardware acceleration browser setting
+5. Make sure your system graphics settings for the browser uses high performance / discrete GPU
+
+### Local installation
+
+Install Dependencies:
 ```
 cd webnn-developer-preview
 npm install
 ```
 
-### Run the website
-
-**WebNN installation guides**
-
-WebNN requires a compatible browser to run, and Windows* 11 v21H2 (DML 1.6.0) or higher.
-
-1. Download the latest [Microsoft Edge Canary](https://www.microsoft.com/edge/download/insider) browser
-2. To enable WebNN, in your browser address bar, enter `about://flags`, and then press `Enter`. An Experiments page opens
-3. In the Search flags box, enter `webnn`. Enables WebNN API appears
-4. In the drop-down menu, select `Enabled`
-5. Relaunch your browser
-
-**Run the website in localhost**
-
+Run the website in localhost:
 ```
 npm run dev
 ```

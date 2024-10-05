@@ -801,7 +801,7 @@ const checkWebNN = async () => {
   } else {
     if (webnnStatus.error) {
       status.setAttribute("class", "red");
-      info.innerHTML = `WebNN not supported: ${webnnStatus.error} <a id="webnn_na" href="../../install.html" title="WebNN Installation Guide">Set up WebNN</a>`;
+      info.innerHTML = `WebNN not supported: ${webnnStatus.error} <a id="webnn_na" href="../../install.html" title="WebNN Setup Guide">Set up WebNN</a>`;
       logError(`[Error] ${webnnStatus.error}`);
     } else {
       status.setAttribute("class", "red");

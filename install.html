@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebNN Developer Preview - WebNN Installation Guide</title>
+  <title>WebNN Setup Guide</title>
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/favicon/apple-touch-icon.png" />
   <link rel="shortcut icon" type="image/png" sizes="32x32" href="./assets/favicon/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicon/favicon-16x16.png" />
@@ -207,25 +207,20 @@
       </a>
     </header>
     <section class="banner-content installation" id="banner">
-      <h2>WebNN Installation Guide</h2>
+      <h2>WebNN Setup Guide</h2>
     </section>
     <div id='install-guides'>
-      <h3>Enabling Insider version of Edge for WebNN Dev Preview GPU</h3>
-      WebNN Dev Preview GPU requires a compatible browser to run, and Windows* 11
-      v21H2 (DML 1.6.0) or higher:
+      <h3>Enabling WebNN for GPU</h3>
+
       <ol>
-        <li>Download the <a href="https://www.microsoft.com/en-us/edge/download/insider?form=MA13FJ">Microsoft Edge Canary or Dev</a> browser</li>
-        <li>To enable WebNN, in your browser address bar, enter
-          <code>about://flags</code>, and then press
-          <code>Enter</code>. An Experiments page opens
-        </li>
-        <li>In the Search flags box, enter <code>webnn</code>.
-          Enables WebNN API appears</li>
-        <li>In the drop-down menu, select <code>Enabled</code></li>
-        <li>Relaunch your browser</li>
+        <li>Requires Windows 11 v21H2 (DML 1.6.0) or higher and a GPU, for support of "expand" and "layerNormalization" ops. See <a href="https://webmachinelearning.github.io/webnn-status/">WebNN implementation status</a></li>
+        <li>Requires <em>Chromium desktop</em> (e.g. Chrome, Edge) 129 or higher</li>
+        <li>Enable <code>chrome://flags/#web-machine-learning-neural-network</code> and relaunch the browser</li>
+        <li>Enable graphics/hardware acceleration browser setting</li>
+        <li>Make sure your system graphics settings for the browser uses high performance / discrete GPU</li>
       </ol>
 
-      <h3>Enabling Insider version of Edge for WebNN Dev Preview NPU</h3>
+      <h3>Enabling WebNN for NPU</h3>
       To get started with WebNN NPU on DirectML compatible devices you will need:
       <ul>
         <li>Windows 11, version 24H2 or newer</li>
