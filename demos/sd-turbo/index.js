@@ -276,6 +276,9 @@ async function load_models(models) {
   log("[Session Create] Ready to generate images");
   let image_area = document.querySelectorAll("#image_area>div");
   image_area.forEach((i) => {
+    const canvas = i.querySelector('canvas')
+    canvas.width = 512
+    canvas.height = 512
     i.setAttribute("class", "frame done");
   });
   buttons.setAttribute("class", "button-group key loaded");
@@ -625,8 +628,6 @@ function draw_image(t, image_nr) {
   }
   const imageData = t.toImageData({ tensorLayout: "NCHW", format: "RGB" });
   const canvas = document.getElementById(`img_canvas_${image_nr}`);
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
   canvas.getContext("2d").putImageData(imageData, 0, 0);
 }
 
@@ -682,6 +683,7 @@ async function generate_image(load=true) {
     const start_step = input_image_mode.value == 'text' ? 0 : (sigmas.length - 1) * Math.max(0, Math.min(image_strength.valueAsNumber, 1)) | 0
     const sigma = sigmas[start_step]
     const timestep = sigmas.length - 1 - start_step
+    console.log(start_step, sigma, timestep)
 
     if (!noise || input_image_mode.value == 'text' || input_image_mode.value == 'image' || input_image_mode.value == 'output' || input_image_mode.value == 'cartoon' && !have_output)
         noise = new ort.Tensor(
@@ -1261,7 +1263,7 @@ input_image_mode.addEventListener('change', async () => {
         if (stream)
             stream.getTracks().forEach(track => track.stop())
         if (input_image_mode.value == 'output' || input_image_mode.value == 'cartoon') {
-            const updateInput = async () => {
+            const updateInput = () => {
                 if (input_image_mode.value == 'output' || input_image_mode.value == 'cartoon') {
                     generate_image(false)
                     setTimeout(updateInput)
