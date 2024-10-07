@@ -147,8 +147,6 @@ async function readResponse(name, response) {
         vaeEncoderFetchProgress = 0.01 * fetchProgress;
       }
 
-
-
     updateProgress();
     updateLoadWave(progress.toFixed(2));
 
@@ -681,7 +679,7 @@ async function generate_image(load=true) {
       let startTotal = performance.now();
       const latent_shape = [1, 4, 64, 64];
 
-    const start_step = input_image_mode.value == 'text' ? 0 : (sigmas.length - 1) * Math.max(0, Math.min(image_strength.valueAsNumber | 0, 1))
+    const start_step = input_image_mode.value == 'text' ? 0 : (sigmas.length - 1) * Math.max(0, Math.min(image_strength.valueAsNumber, 1)) | 0
     const sigma = sigmas[start_step]
     const timestep = sigmas.length - 1 - start_step
 
