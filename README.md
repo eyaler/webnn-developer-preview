@@ -8,7 +8,7 @@
 
 ### Known issues:
 1. Run times of VAE encoder and UNET are inconsistent and are sometimes slower by 10x
-2. The "image strength" parameter is a hack
+
 ---
 
 Run ONNX models in the browser with WebNN. The developer preview unlocks interactive ML on the web that benefits from reduced latency, enhanced privacy and security, and GPU acceleration from DirectML.
