@@ -9,6 +9,12 @@
 ### Known issues:
 1. Run times of VAE encoder and UNET are inconsistent and are sometimes slower by 10x
 
+### Example:
+
+<code>Benjamin Netanyahu holding a white pigeon</code>
+
+![sd_turbo.png](assets/img/demos/sd_turbo.png)
+
 ---
 
 Run ONNX models in the browser with WebNN. The developer preview unlocks interactive ML on the web that benefits from reduced latency, enhanced privacy and security, and GPU acceleration from DirectML.
