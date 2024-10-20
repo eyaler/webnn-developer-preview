@@ -3,13 +3,16 @@ import re
 import sys
 
 
-assert len(sys.argv) == 3, 'Syntax: python fix_instance_norm.py INPUT_TXT_OR_ONNX OUTPUT_TXT_OR_ONNX'
+assert len(sys.argv) >= 3, 'Syntax: python fix_instance_norm.py INPUT_TXT_OR_ONNX OUTPUT_TXT_OR_ONNX [location of onnx2text]'
 input_file = sys.argv[1]
 output_file = sys.argv[2]
+onnx2text = 'onnx2text'
+if len(sys.argv) > 3:
+    onnx2text = os.path.join(sys.argv[3], onnx2text)
 
 if os.path.splitext(input_file)[-1] == '.onnx':
     converted_input_file = input_file + '.txt'
-    os.system(f'onnx2text "{input_file}" "{converted_input_file}"')
+    os.system(f'{onnx2text} "{input_file}" "{converted_input_file}"')
     input_file = converted_input_file
 
 converted_output_file = None
@@ -49,7 +52,7 @@ parts = re.split(delim, text)
 total = 0
 constants = []
 for i, part in enumerate(parts[1 : -1], start=1):
-    part, subs = re.subn('(.*?input: ")([^"]*?)(_output[^"]*)?(".*?output: ")([^"]*?)(_output[^"]*)?(".*op_type: "InstanceNormalization".*)', replace, part, flags=re.DOTALL)
+    part, subs = re.subn('(.*?input: ")([^"]*?)(_output[^"]*)?(".*?output: ")([^"]*?)(_output[^"]*)?((?<!_tocast)".*op_type: "InstanceNormalization".*)', replace, part, flags=re.DOTALL)
     if subs:
         constants += re.findall('".*constant.*"', part, flags=re.IGNORECASE)
         parts[i] = part
@@ -69,4 +72,4 @@ with open(output_file, 'w', encoding='utf8') as f:
     f.write(''.join(parts))
 
 if converted_output_file:
-    os.system(f'onnx2text "{output_file}" "{converted_output_file}"')
+    os.system(f'{onnx2text} "{output_file}" "{converted_output_file}"')

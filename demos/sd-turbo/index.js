@@ -36,7 +36,8 @@ function getConfig() {
     devicetype: "gpu",
     threads: "1",
     images: "1",
-    ort: "test"
+    ort: "test",
+    power: 'high-performance'
   };
 
   config.threads = parseInt(config.threads);
@@ -47,20 +48,24 @@ function getConfig() {
 /*
  * initialize latents with random noise
  */
+const data = new Float32Array(16384);
+
 function randn_latents(shape) {
   function randn() {
     // Use the Box-Muller transform
-    let u = Math.random();
-    let v = Math.random();
-    let z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    const u = Math.random();
+    const v = Math.random();
+    const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     return z;
   }
+
   let size = 1;
   shape.forEach((element) => {
     size *= element;
   });
 
-  let data = new Float32Array(size);
+
+  //const data = new Float32Array(size);
   // Loop over the shape dimensions
   for (let i = 0; i < size; i++) {
     data[i] = randn();
@@ -212,6 +217,7 @@ async function load_models(models) {
       } else if (name == "vae_encoder") {
         modelNameInLog = "VAE Encoder";
         modelUrl = `${config.model}/${name}/model.onnx`;
+        //modelUrl = 'vae_encoder_deterministic.onnx'
       }
       log(`[Load] Loading model ${modelNameInLog} · ${model.size}`);
       let modelBuffer = await getModelOPFS(`sd_turbo_${name}`, modelUrl, refetch.checked);
@@ -292,7 +298,7 @@ async function load_models(models) {
 
 const config = getConfig();
 
-let models = {
+const models = {
   unet: {
     // original model from dw, then wm dump new one from local graph optimization.
     url: "unet/model_layernorm.onnx",
@@ -303,7 +309,7 @@ let models = {
     // orignal model from gu, wm convert the output to fp16.
     url: "text_encoder/model_layernorm.onnx",
     size: "649MB",
-    opt: { graphOptimizationLevel: "disabled", },
+    opt: { graphOptimizationLevel: "disabled",},
     // opt: { freeDimensionOverrides: { batch_size: 1, sequence_length: 77 } },
   },
   vae_decoder: {
@@ -481,21 +487,24 @@ const opt = {
       use_ort_model_bytes_for_initializers: "1",
     },
   },
-  logSeverityLevel: 0,
+  //logSeverityLevel: 0,
 };
 
 /*
  * scale the latents
  */
+const d_o = new Float32Array(16384);
+
 function scale_model_inputs(t, sigma) {
   const d_i = t.data;
-  const d_o = new Float32Array(d_i.length);
+  //const d_o = new Float32Array(d_i.length);
 
   const divi = (sigma ** 2 + 1) ** 0.5;
   for (let i = 0; i < d_i.length; i++) {
     d_o[i] = d_i[i] / divi;
   }
-  return new ort.Tensor(d_o, t.dims);
+  //return new ort.Tensor(d_o, t.dims);
+  return d_o;
 }
 
 /*
@@ -504,16 +513,19 @@ function scale_model_inputs(t, sigma) {
  * Maybe next step is to support all sd flavors and create a small helper model in onnx can deal
  * much more efficient with latents.
  */
+const d_o1 = new Float32Array(16384);
+
 function step(model_output, sample, sigma, gamma, scaling_factor) {
-  const d_o = new Float32Array(model_output.data.length);
-  const prev_sample = new ort.Tensor(d_o, model_output.dims);
+  //const d_o1 = new Float32Array(model_output.data.length);
+  //const prev_sample = new ort.Tensor(d_o1, model_output.dims);
+  const prev_sample = new ort.Tensor(d_o1, latent_shape)
   const sigma_hat = sigma * (gamma + 1);
 
-  for (let i = 0; i < model_output.data.length; i++) {
-    const pred_original_sample = sample.data[i] - sigma_hat * model_output.data[i];
+  for (let i = 0; i < model_output.length; i++) {
+    const pred_original_sample = sample.data[i] - sigma_hat * model_output[i];
     const derivative = (sample.data[i] - pred_original_sample) / sigma_hat;
     const dt = 0 - sigma_hat;
-    d_o[i] = (sample.data[i] + derivative * dt) / scaling_factor;
+    d_o1[i] = (sample.data[i] + derivative * dt) / scaling_factor;
   }
   return prev_sample;
 }
@@ -571,11 +583,13 @@ function normalizeImageData(imageData) {
   return { data: array, width: width, height: height };
 }
 
+const rearrangedData = new Float32Array(512 * 512 * 3);
+
 function get_tensor_from_image(imageData, format, norm=2, offset=1) {
   const { data, width, height } = imageData;
   const numPixels = width * height;
   const channels = 3;
-  let rearrangedData = new Float32Array(numPixels * channels);
+  //const rearrangedData = new Float32Array(numPixels * channels);
   let destOffset = 0;
 
   for (let i = 0; i < numPixels; i++) {
@@ -603,7 +617,7 @@ function get_tensor_from_image(imageData, format, norm=2, offset=1) {
     format === "NCHW"
       ? [1, channels, height, width]
       : [1, height, width, channels];
-  let tensor = new ort.Tensor(
+  const tensor = new ort.Tensor(
     "float16",
     convertToUint16Array(rearrangedData),
     tensorShape
@@ -633,6 +647,9 @@ function draw_image(t, image_nr) {
 
 let last_prompt, last_hidden_state, generating, noise, have_output, output, cartoon
 
+const out_dims = [1, 3, 512, 512]
+const latent_shape = [1, 4, 64, 64];
+
 async function generate_image(load=true) {
   if (!load_finished && !load.disabled && load) {
     await load_models(models)
@@ -645,26 +662,24 @@ async function generate_image(load=true) {
     generate.disabled = true
 
   try {
-    let start
-
     log(`[Session Run] Beginning`);
 
     const prompt = document.querySelector("#user-input");
     if (prompt.value != last_prompt) {
+        const start = performance.now();
+
         const { input_ids } = await tokenizer(prompt.value, {
           padding: true,
           max_length: 77,
           truncation: true,
           return_tensor: false,
         });
-
         // text_encoder
-        start = performance.now();
-        let result = await models.text_encoder.sess.run({
-          input_ids: new ort.Tensor("int32", input_ids, [1, input_ids.length]),
+        const result = await models.text_encoder.sess.run({
+          input_ids: new ort.Tensor("int32", input_ids, [1, 77]),
         });
         last_hidden_state = result.last_hidden_state
-        let sessionRunTimeTextEncode = (performance.now() - start).toFixed(2);
+        const sessionRunTimeTextEncode = (performance.now() - start).toFixed(2);
         textEncoderRun1.innerHTML = sessionRunTimeTextEncode;
 
         if (getMode()) {
@@ -677,8 +692,7 @@ async function generate_image(load=true) {
         last_prompt = prompt.value
     }
     const j = 0
-      let startTotal = performance.now();
-      const latent_shape = [1, 4, 64, 64];
+    const startTotal = performance.now();
 
     const start_step = input_image_mode.value == 'text' ? 0 : (sigmas.length - 1) * Math.max(0, Math.min(image_strength.valueAsNumber, 1)) | 0
     const sigma = sigmas[start_step]
@@ -694,7 +708,7 @@ async function generate_image(load=true) {
   // vae_encoder
   let latent
   if (input_image_mode.value != 'text') {
-    start = performance.now();
+    const start = performance.now();
     let input_sample
     if (input_image_mode.value == 'cartoon' && have_output)
         input_sample = cartoon
@@ -710,7 +724,7 @@ async function generate_image(load=true) {
             sample: input_sample,
         });
     latent = convertToFloat32Array(latent_sample.data).map((value, index) => value*vae_scaling_factor + noise.data[index]*sigma)
-    let vaeEncoderRunTime = (performance.now() - start).toFixed(2);
+    const vaeEncoderRunTime = (performance.now() - start).toFixed(2);
     document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = vaeEncoderRunTime;
 
     if (getMode()) {
@@ -725,27 +739,27 @@ async function generate_image(load=true) {
   } else {
     have_output = true
     latent = noise.data.map(n => n*sigma)
+     document.getElementById(`vaeEncoderRun${j + 1}`).innerHTML = 0
   }
 
     latent = new ort.Tensor("float32", latent, latent_shape);
     const scaled = scale_model_inputs(latent, sigma);
     const latent16 = new ort.Tensor(
       "float16",
-      convertToUint16Array(scaled.data),
-      scaled.dims
+      //convertToUint16Array(scaled.data),
+      convertToUint16Array(scaled),
+      latent_shape
     )
 
   // unet
-  start = performance.now();
-  let feed = {
+  let start = performance.now();
+  const feed = {
     sample: latent16,
-    timestep: new ort.Tensor("float16", new Uint16Array([toHalf(timestep)]), [
-      1,
-    ]),
+    timestep: new ort.Tensor("float16", new Uint16Array([toHalf(timestep)]), [1,]),
     encoder_hidden_states: last_hidden_state,
   };
-  let { out_sample } = await models.unet.sess.run(feed);
-  let unetRunTime = (performance.now() - start).toFixed(2);
+  const { out_sample } = await models.unet.sess.run(feed);
+  const unetRunTime = (performance.now() - start).toFixed(2);
   document.getElementById(`unetRun${j + 1}`).innerHTML = unetRunTime;
 
   if (getMode()) {
@@ -758,11 +772,7 @@ async function generate_image(load=true) {
 
   // scheduler
   const new_latents = step(
-    new ort.Tensor(
-      "float32",
-      convertToFloat32Array(out_sample.data),
-      out_sample.dims
-    ),
+    convertToFloat32Array(out_sample.data),
     latent, sigma, gamma, vae_scaling_factor
   );
 
@@ -771,7 +781,7 @@ async function generate_image(load=true) {
   const { sample } = await models.vae_decoder.sess.run({
     latent_sample: new_latents,
   });
-  let vaeRunTime = (performance.now() - start).toFixed(2);
+  const vaeRunTime = (performance.now() - start).toFixed(2);
   document.getElementById(`vaeRun${j + 1}`).innerHTML = vaeRunTime;
 
   if (getMode()) {
@@ -786,15 +796,15 @@ async function generate_image(load=true) {
   output = new ort.Tensor(
             "float16",
             convertToUint16Array(sample.data, true),
-            sample.dims
+            out_dims
           )
   draw_image(sample, j);
   cartoon = new ort.Tensor(
             "float16",
             convertToUint16Array(sample.data),
-            sample.dims
+            out_dims
           )
-  let totalRunTime = (
+  const totalRunTime = (
     performance.now() -
     startTotal
   ).toFixed(2);
@@ -959,7 +969,7 @@ const getTime = () => {
 const checkWebNN = async () => {
   let status = document.querySelector("#webnnstatus");
   let info = document.querySelector("#info");
-  let webnnStatus = await webNnStatus();
+  let webnnStatus = await getWebnnStatus();
 
   if (webnnStatus.webnn) {
     status.setAttribute("class", "green");
@@ -986,7 +996,7 @@ const checkWebNN = async () => {
 };
 
 let context
-const webNnStatus = async () => {
+const getWebnnStatus = async () => {
   let result = {};
   try {
     context = await navigator.ml.createContext();
@@ -1070,8 +1080,9 @@ const ui = async () => {
     dataElement.setAttribute("class", "hide");
   }
 
-  await setupORT('sd-turbo', 'dev');
-  showCompatibleChromiumVersion('sd-turbo');
+  const branch = 'dev'
+  await setupORT('sd-turbo', branch);
+  showCompatibleChromiumVersion('sd-turbo', branch);
 
   if (
     getQueryValue("provider") &&
@@ -1124,12 +1135,13 @@ const ui = async () => {
       opt.preferredOutputLocation = { last_hidden_state: "gpu-buffer" };
       break;
     case "webnn":
-      let webnnStatus = await webNnStatus();
+      let webnnStatus = await getWebnnStatus();
       if (webnnStatus.webnn) {
         opt.executionProviders = [
           {
             name: "webnn",
-            deviceType: config.devicetype
+            deviceType: config.devicetype,
+            powerPreference: config.power,
           },
         ];
       }
@@ -1239,7 +1251,7 @@ input_image_mode.addEventListener('change', async () => {
             input_image_mode.value = 'image'
             return
         }
-        stream.addEventListener('inactive', () => input_image_mode.value = 'image')
+        stream.addEventListener('inactive', () => {if (input_image_mode.value == 'camera') input_image_mode.value = 'image'})
         video.srcObject = stream
         video.play()
         const ctx = img_canvas_input.getContext('2d', {willReadFrequently: true})

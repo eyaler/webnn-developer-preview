@@ -1,13 +1,14 @@
 const KNOWN_COMPATIBLE_CHROMIUM_VERSION = {
-  'stable-diffusion-1.5': '129.0.6617.0',
-  'sd-turbo': '129.0.6617.0',
-  'segment-anything': '129.0.6617.0',
-  'whisper-base': '129.0.6617.0',
-  'image-classification': '129.0.6617.0'
+  'stable-diffusion-1.5': ['129.0.6617.0'],
+  'sd-turbo': ['129.0.6617.0', '130.0.6723.59'],
+  'segment-anything': ['129.0.6617.0'],
+  'whisper-base': ['129.0.6617.0'],
+  'image-classification': ['129.0.6617.0']
 }
 
-export const showCompatibleChromiumVersion = (key) => {
-  const version = KNOWN_COMPATIBLE_CHROMIUM_VERSION[key]
+export const showCompatibleChromiumVersion = (key, branch) => {
+  const flag = (branch && !KNOWN_COMPATIBLE_ORT_VERSION[key][branch].startsWith('1.19') && KNOWN_COMPATIBLE_CHROMIUM_VERSION[key].length > 1) | 0
+  const version = KNOWN_COMPATIBLE_CHROMIUM_VERSION[key][flag]
   if (version) {
     const chromiumVersionElement = document.querySelector('#chromiumversion');
     chromiumVersionElement.innerHTML = `Known compatible Chromium version: 
@@ -123,13 +124,12 @@ export const getTime = () => {
 };
 
 const KNOWN_COMPATIBLE_ORT_VERSION = {
-  'stable-diffusion-1.5': { 'dev': '1.19.0-dev.20240804-ee2fe87e2d', 'stable': '1.20.0', 'test': 'test' },
-  'sd-turbo': { 'dev': '1.19.0-dev.20240804-ee2fe87e2d', 'stable': '1.20.0', 'test': 'test' },
-  //'sd-turbo': { 'dev': '1.19.2', 'stable': '1.20.0', 'test': 'test' },
-  //'sd-turbo': { 'dev': '1.20.0-dev.20240928-1bda91fc57', 'stable': '1.20.0', 'test': 'test' },
-  'segment-anything': { 'dev': '1.19.0-dev.20240804-ee2fe87e2d', 'stable': '1.20.0', 'test': 'test' },
-  'whisper-base': { 'dev': '1.19.0-dev.20240804-ee2fe87e2d', 'stable': '1.20.0', 'test': 'test' },
-  'image-classification': { 'dev': '1.19.0-dev.20240804-ee2fe87e2d', 'stable': '1.20.0', 'test': 'test' },
+  'stable-diffusion-1.5': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
+  'sd-turbo': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
+  //'sd-turbo': { 'dev': '1.21.0-dev.20241019-abad69b322', 'stable': '1.20.0', 'test': 'test' },
+  'segment-anything': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
+  'whisper-base': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
+  'image-classification': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
 };
 
 const ORT_BASE_URL = 'https://www.npmjs.com/package/onnxruntime-web/v/';
@@ -187,7 +187,7 @@ export const setupORT = async (key, branch) => {
   ortVersionElement.innerHTML = versionHtml;
 };
 
-export const webNnStatus = async () => {
+export const getWebnnStatus = async () => {
   let result = {};
   try {
     const context = await navigator.ml.createContext();
