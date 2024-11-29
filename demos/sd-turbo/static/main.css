@@ -1050,7 +1050,7 @@ svg {
 }
 
 .archive {
-  position: fixed;
+  position: absolute;
   right: 1.4rem;
   top: .7rem;
   z-index: 1000;

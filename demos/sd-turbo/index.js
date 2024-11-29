@@ -36,7 +36,7 @@ function getConfig() {
     devicetype: "gpu",
     threads: "1",
     images: "1",
-    ort: "test",
+    ort: "dev",
     power: 'high-performance'
   };
 

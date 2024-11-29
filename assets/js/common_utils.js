@@ -125,8 +125,8 @@ export const getTime = () => {
 
 const KNOWN_COMPATIBLE_ORT_VERSION = {
   'stable-diffusion-1.5': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
-  'sd-turbo': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
-  //'sd-turbo': { 'dev': '1.21.0-dev.20241019-abad69b322', 'stable': '1.20.0', 'test': 'test' },
+  'sd-turbo': { 'dev': '1.20.0-dev.20240927-b81e76b9a6', 'stable': '1.20.0', 'test': 'test' },
+  //'sd-turbo': { 'dev': '1.21.0-dev.20241109-d3ad76b2cf', 'stable': '1.20.0', 'test': 'test' },  // https://github.com/microsoft/webnn-developer-preview/pull/56#issuecomment-2507744656
   'segment-anything': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
   'whisper-base': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
   'image-classification': { 'dev': '1.20.0-dev.20240919-bd60add8ce', 'stable': '1.20.0', 'test': 'test' },
